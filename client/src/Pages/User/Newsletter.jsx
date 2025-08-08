@@ -1,5 +1,5 @@
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 import { Mail } from "lucide-react";
 
 export function Newsletter() {

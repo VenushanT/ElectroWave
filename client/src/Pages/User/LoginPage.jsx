@@ -1,17 +1,57 @@
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Smartphone, Eye, EyeOff } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setLoading, setError, clearError } from '../../store/authSlice';
+import axios from 'axios';
 
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { Smartphone, Eye, EyeOff } from "lucide-react";
+const API_URL = 'http://localhost:5000/api/users';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error } = useSelector((state) => state.auth);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log({ email, password });
+    dispatch(clearError());
+    dispatch(setLoading(true));
+
+    try {
+      const response = await axios.post(`${API_URL}/login`, { email, password });
+      console.log('Login response:', response.data);
+
+      // Adjust for server response structure
+      const { token, user } = response.data;
+      if (!token || !user) {
+        throw new Error('Invalid response from server');
+      }
+
+      dispatch(setUser({ user, token }));
+      navigate('/'); // Navigate immediately after setting user
+
+      // Optional: Fetch profile data (non-blocking)
+      try {
+        const profileResponse = await axios.get(`${API_URL}/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('Profile response:', profileResponse.data);
+        if (profileResponse.data.user) {
+          dispatch(setUser({ user: profileResponse.data.user, token }));
+        }
+      } catch (profileError) {
+        console.error('Profile fetch error:', profileError.message);
+        // Non-critical: Proceed without profile data
+      }
+    } catch (error) {
+      console.error('Login error:', error.response?.data || error.message);
+      dispatch(setError(error.response?.data?.message || 'Login failed'));
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 
   return (
@@ -23,6 +63,9 @@ const LoginPage = () => {
           </div>
           <h2 className="text-3xl font-bold text-slate-900">Welcome Back</h2>
         </div>
+        {error && (
+          <div className="text-red-600 text-sm mb-4 text-center">{error}</div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
@@ -39,7 +82,7 @@ const LoginPage = () => {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-slate-50"
@@ -57,9 +100,17 @@ const LoginPage = () => {
           </div>
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-1 shadow-lg font-semibold"
+            disabled={loading}
+            className={`w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-1 shadow-lg font-semibold flex items-center justify-center ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Sign In
+            {loading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Signing In...
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
         <div className="text-center mt-6 text-sm text-slate-600">

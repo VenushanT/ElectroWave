@@ -1,7 +1,7 @@
-import { Card, CardContent } from "./ui/Card";
+import { Card, CardContent } from "../ui/Card";
 import { Smartphone, Laptop, Headphones, Camera, Watch, Gamepad2, Tablet, Speaker } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useSearch } from "../contexts/SearchContext";
+import { useSearch } from "../../contexts/SearchContext";
 
 const categories = [
   { name: "Smartphones", icon: Smartphone, count: "2,847", color: "bg-blue-500" },

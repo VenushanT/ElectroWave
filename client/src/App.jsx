@@ -1,18 +1,20 @@
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from "react-router-dom";
-import { SearchProvider } from "./contexts/SearchContext";
-import { Header } from "./components/Header";
-import { HeroSection } from "./components/HeroSection";
-import { CategoriesSection } from "./components/CategoriesSection";
-import { FeaturedProducts } from "./components/FeaturedProducts";
-import { DealsSection } from "./components/DealsSection";
-import { Newsletter } from "./components/Newsletter";
-import { Footer } from "./components/Footer";
-import LoginPage from "./components/LoginPage";
-import RegisterPage from "./components/RegisterPage";
-import UserProfile from "./components/UserProfile";
-import ProductPage from "./components/ProductPage";
-import AddToCart from "./components/AddToCart";
-import PaymentPage from "./components/PaymentPage";
+import { Route, Routes, useLocation } from 'react-router-dom';
+import { SearchProvider } from './contexts/SearchContext';
+import { Header } from './components/User/Header';
+import { HeroSection } from './Pages/User/HeroSection';
+import { CategoriesSection } from './Pages/User/CategoriesSection';
+import { FeaturedProducts } from './Pages/User/FeaturedProducts';
+import { DealsSection } from './Pages/User/DealsSection';
+import { Newsletter } from './Pages/User/Newsletter';
+import { Footer } from './components/User/Footer';
+import LoginPage from './Pages/User/LoginPage';
+import RegisterPage from './Pages/User/RegisterPage';
+import UserProfile from './Pages/User/UserProfile';
+import ProductPage from './Pages/User/ProductPage';
+import AddToCart from './Pages/User/AddToCart';
+import PaymentPage from './Pages/User/PaymentPage';
+import { Provider } from 'react-redux';
+import { store } from './store';
 
 function AppContent() {
   const location = useLocation();
@@ -21,7 +23,7 @@ function AppContent() {
     '/cart',
     '/payment',
     '/login',
-    '/register'
+    '/register',
   ].includes(location.pathname);
   const showLogoOnlyFooter = ['/login', '/register'].includes(location.pathname);
 
@@ -56,7 +58,11 @@ function AppContent() {
       {!hideHeader && !showLogoOnlyFooter && <Footer />}
       {showLogoOnlyFooter && (
         <footer className="w-full flex justify-center items-center py-8 bg-transparent">
-          <img src={process.env.PUBLIC_URL + '/zap-logo.png'} alt="ElectroWave Logo" className="w-16 h-16 object-contain" />
+          <img
+            src={process.env.PUBLIC_URL + '/zap-logo.png'}
+            alt="ElectroWave Logo"
+            className="w-16 h-16 object-contain"
+          />
         </footer>
       )}
     </div>
@@ -65,11 +71,11 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
+    <Provider store={store}>
       <SearchProvider>
         <AppContent />
       </SearchProvider>
-    </Router>
+    </Provider>
   );
 }
 

@@ -1,6 +1,6 @@
-import { Card, CardContent } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Badge } from "./ui/Badge";
+import { Card, CardContent } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Badge } from "../ui/Badge";
 import { Star, Heart, ShoppingCart } from "lucide-react";
 
 const products = [
