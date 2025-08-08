@@ -8,10 +8,15 @@ ElectroWave is a full-stack e-commerce platform built with the MERN stack (Mongo
 Features 🎮
 
 Product Catalog 🌟: Browse a wide range of electronics with detailed descriptions and images. 📸
+
 User Authentication 🔐: Secure sign-up, login, and user profile management. 👤
+
 Shopping Cart 🛒: Add, remove, and update items in the cart. ➕➖
+
 Order Processing 📦: Place orders and view order history. ✅
+
 Admin Dashboard 👨‍💻: Manage products, categories, and orders (for admin users). 🛠️
+
 Responsive Design 📱💻: Optimized for desktop and mobile devices. 🌍
 
 Tech Stack 💻
