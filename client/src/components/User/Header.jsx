@@ -177,10 +177,6 @@ export function Header() {
     }`.toUpperCase();
   };
 
-  // Hide profile-related button on homepage for guests
-  const isHomepage = location.pathname === "/";
-  const showProfileButton = isAuthenticated || !isHomepage;
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -408,7 +404,18 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-4">
-            {showProfileButton && (
+            {!isAuthenticated && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-all duration-200"
+                onClick={() => navigate("/login")}
+              >
+                <UserPlus className="h-5 w-5" />
+                <span className="text-sm font-medium">Sign In</span>
+              </Button>
+            )}
+
+            {isAuthenticated && (
               <div className="relative" ref={profileMenuRef}>
                 <Button
                   variant="ghost"
@@ -429,85 +436,54 @@ export function Header() {
                         currentUserData?.lastName
                       )}
                     </div>
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold">
-                      ?
-                    </div>
-                  )}
+                  ) : null}
                 </Button>
 
                 {showProfileMenu && (
                   <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-2xl z-50 overflow-hidden transform transition-all duration-200 ease-out animate-in slide-in-from-top-2">
-                    {isAuthenticated ? (
-                      <>
-                        <div className="p-4 bg-gradient-to-r from-blue-50 to-slate-50 border-b border-slate-200 flex items-center gap-3">
-                          {currentUserData?.profilePicture ? (
-                            <img
-                              src={`http://localhost:5000${currentUserData.profilePicture}`}
-                              alt={`${currentUserData.firstName} ${currentUserData.lastName}`}
-                              className="h-12 w-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-xl">
-                              {getInitials(
-                                currentUserData?.firstName,
-                                currentUserData?.lastName
-                              )}
-                            </div>
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-slate-50 border-b border-slate-200 flex items-center gap-3">
+                      {currentUserData?.profilePicture ? (
+                        <img
+                          src={`http://localhost:5000${currentUserData.profilePicture}`}
+                          alt={`${currentUserData.firstName} ${currentUserData.lastName}`}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-xl">
+                          {getInitials(
+                            currentUserData?.firstName,
+                            currentUserData?.lastName
                           )}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-slate-900 break-words">{`${currentUserData?.firstName} ${currentUserData?.lastName}`}</p>
-                            <p className="text-sm text-slate-600 break-words">
-                              {currentUserData?.email}
-                            </p>
-                          </div>
                         </div>
-                        <div className="py-2">
-                          <Link
-                            to="/profile"
-                            className="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors"
-                            onClick={() => setShowProfileMenu(false)}
-                          >
-                            <UserPlus className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              View Profile
-                            </span>
-                          </Link>
-                          <button
-                            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors"
-                            onClick={() => {
-                              setShowProfileMenu(false);
-                              dispatch(logout());
-                              navigate("/login");
-                            }}
-                          >
-                            <LogOut className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              Sign Out
-                            </span>
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="py-2">
-                        <Link
-                          to="/login"
-                          className="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors"
-                          onClick={() => setShowProfileMenu(false)}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          <span className="text-sm font-medium">Sign In</span>
-                        </Link>
-                        <Link
-                          to="/register"
-                          className="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors"
-                          onClick={() => setShowProfileMenu(false)}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          <span className="text-sm font-medium">Register</span>
-                        </Link>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-900 break-words">{`${currentUserData?.firstName} ${currentUserData?.lastName}`}</p>
+                        <p className="text-sm text-slate-600 break-words">
+                          {currentUserData?.email}
+                        </p>
                       </div>
-                    )}
+                    </div>
+                    <div className="py-2">
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors"
+                        onClick={() => setShowProfileMenu(false)}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span className="text-sm font-medium">View Profile</span>
+                      </Link>
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors"
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          dispatch(logout());
+                          navigate("/login");
+                        }}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span className="text-sm font-medium">Sign Out</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
