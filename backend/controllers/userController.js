@@ -34,21 +34,38 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 }).single('profilePicture');
 
+// Initialize static admin user
+const initializeAdmin = async () => {
+  const adminEmail = 'admin@gmail.com';
+  const adminPassword = 'admin@1234';
+  const existingAdmin = await User.findOne({ email: adminEmail });
+  if (!existingAdmin) {
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    await User.create({
+      firstName: 'Admin',
+      lastName: 'User',
+      email: adminEmail,
+      password: hashedPassword,
+      role: 'admin',
+    });
+    console.log('Admin user created at', new Date().toISOString());
+  }
+};
+
+initializeAdmin().catch((err) => console.error('Admin initialization error:', err));
+
 // Register User
 exports.registerUser = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await User.create({
       firstName,
       lastName,
@@ -56,7 +73,6 @@ exports.registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
-    // Generate JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
@@ -79,22 +95,23 @@ exports.registerUser = async (req, res) => {
 // Login User
 exports.loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    if (email === 'admin@gmail.com' && password === 'admin@1234' && role !== 'admin') {
+      return res.status(400).json({ message: 'Admin must select "admin" role' });
+    }
+
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
 
@@ -106,6 +123,7 @@ exports.loginUser = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -120,10 +138,9 @@ exports.editProfile = async (req, res) => {
       return res.status(400).json({ message: err.message });
     }
     try {
-      const userId = req.user.id; // From JWT middleware
+      const userId = req.user.id;
       const { firstName, lastName, email, phoneNumber, dateOfBirth, address, bio } = req.body;
 
-      // Prepare update data
       const updateData = {
         firstName,
         lastName,
@@ -134,10 +151,8 @@ exports.editProfile = async (req, res) => {
         bio,
       };
 
-      // Handle profile picture
       if (req.file) {
         updateData.profilePicture = `/uploads/profilePictures/${req.file.filename}`;
-        // Delete old profile picture if exists
         const user = await User.findById(userId);
         if (user.profilePicture) {
           const oldPath = path.join(__dirname, '../', user.profilePicture);
@@ -147,7 +162,6 @@ exports.editProfile = async (req, res) => {
         }
       }
 
-      // Update user
       const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
         new: true,
         runValidators: true,
@@ -180,14 +194,13 @@ exports.editProfile = async (req, res) => {
 // Delete Account
 exports.deleteAccount = async (req, res) => {
   try {
-    const userId = req.user.id; // From JWT middleware
+    const userId = req.user.id;
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Delete profile picture if exists
     if (user.profilePicture) {
       const filePath = path.join(__dirname, '../', user.profilePicture);
       if (fs.existsSync(filePath)) {
@@ -195,7 +208,6 @@ exports.deleteAccount = async (req, res) => {
       }
     }
 
-    // Delete user
     await User.findByIdAndDelete(userId);
 
     res.status(200).json({ message: 'Account deleted successfully' });
@@ -207,8 +219,8 @@ exports.deleteAccount = async (req, res) => {
 // Get Profile
 exports.getProfile = async (req, res) => {
   try {
-    const userId = req.user.id; // From JWT middleware
-    const user = await User.findById(userId).select('-password'); // Exclude password
+    const userId = req.user.id;
+    const user = await User.findById(userId).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -238,7 +250,7 @@ exports.getProfile = async (req, res) => {
 // Get All Users
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password'); // Exclude password field
+    const users = await User.find().select('-password');
     res.status(200).json({
       message: 'Users retrieved successfully',
       users: users.map(user => ({

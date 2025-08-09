@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
     trim: true,
     lowercase: true,
     match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+    index: true, // Add index for faster queries
   },
   password: {
     type: String,
@@ -42,6 +43,11 @@ const userSchema = new mongoose.Schema({
   bio: {
     type: String,
     trim: true,
+  },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
   },
 }, { timestamps: true });
 

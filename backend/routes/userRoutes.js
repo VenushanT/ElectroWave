@@ -7,7 +7,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.put('/profile', verifyToken, editProfile);
 router.delete('/account', verifyToken, deleteAccount);
-router.get('/users', verifyToken, getAllUsers);
-router.get('/profile', verifyToken, getProfile); // Add this line
+router.get('/users', getAllUsers); // Removed verifyToken
+router.get('/profile', verifyToken, getProfile);
 
 module.exports = router;
