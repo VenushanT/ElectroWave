@@ -11,6 +11,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState('user');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error } = useSelector((state) => state.auth);
@@ -21,19 +22,23 @@ const LoginPage = () => {
     dispatch(setLoading(true));
 
     try {
-      const response = await axios.post(`${API_URL}/login`, { email, password });
+      const response = await axios.post(`${API_URL}/login`, { email, password, role }, {
+        headers: { 'Content-Type': 'application/json' },
+      });
       console.log('Login response:', response.data);
 
-      // Adjust for server response structure
       const { token, user } = response.data;
       if (!token || !user) {
         throw new Error('Invalid response from server');
       }
 
-      dispatch(setUser({ user, token }));
-      navigate('/'); // Navigate immediately after setting user
+      dispatch(setUser({ user, token })); // Pass the full user object with role
+      if (email === 'admin@gmail.com' && password === 'admin@1234' && role === 'admin') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
 
-      // Optional: Fetch profile data (non-blocking)
       try {
         const profileResponse = await axios.get(`${API_URL}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -44,7 +49,6 @@ const LoginPage = () => {
         }
       } catch (profileError) {
         console.error('Profile fetch error:', profileError.message);
-        // Non-critical: Proceed without profile data
       }
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
@@ -97,6 +101,18 @@ const LoginPage = () => {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-slate-50"
+              required
+            >
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
           </div>
           <button
             type="submit"

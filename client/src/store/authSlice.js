@@ -20,11 +20,14 @@ const authSlice = createSlice({
       state.error = action.payload;
     },
     setUser: (state, action) => {
-      state.user = action.payload.user || action.payload; // Handle both nested and flat user data
+      const userData = action.payload.user || action.payload; // Handle nested or flat user data
+      state.user = { ...state.user, ...userData }; // Merge existing user data with new data
       state.token = action.payload.token;
       state.isAuthenticated = !!action.payload.token;
       if (action.payload.token) {
         localStorage.setItem('token', action.payload.token);
+      } else {
+        localStorage.removeItem('token');
       }
     },
     updateUser: (state, action) => {
