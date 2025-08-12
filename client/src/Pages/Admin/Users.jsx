@@ -95,7 +95,6 @@ const Users = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
         <div className="flex-1 p-6 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
           <span className="ml-4 text-gray-600 font-medium">Loading users...</span>
@@ -107,7 +106,6 @@ const Users = () => {
   if (error) {
     return (
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
         <div className="flex-1 p-6 flex items-center justify-center">
           <div className="p-4 bg-red-100 text-red-700 rounded-lg shadow-md text-center max-w-md">
             <p className="font-medium">{error}</p>
@@ -119,8 +117,7 @@ const Users = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 p-6">
+            <div className="flex-1 p-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-6 border-b-2 border-blue-500 pb-2">User Management</h1>
 
         {/* Search Bar and Generate Report Button */}

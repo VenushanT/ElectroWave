@@ -1,74 +1,65 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   CreditCard, 
-  Calendar, 
   Lock, 
   User, 
   MapPin, 
-  Phone, 
-  Mail,
   Shield,
   ArrowLeft,
   Check,
   Zap
 } from "lucide-react";
+import axios from "axios";
 
 function PaymentPage() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const orderSummaryRef = useRef();
-  // PDF Download Handler
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF();
-    let y = 10;
-    doc.setFontSize(18);
-    doc.text("Order Summary", 10, y);
-    y += 10;
-    doc.setFontSize(12);
-    orderSummary.items.forEach(item => {
-      doc.text(`${item.name} (Qty: ${item.quantity}) - $${(item.price * item.quantity).toLocaleString()}`, 10, y);
-      y += 8;
-    });
-    y += 4;
-    doc.text(`Subtotal: $${orderSummary.subtotal.toFixed(2)}`, 10, y);
-    y += 8;
-    doc.text(`Shipping: ${orderSummary.shipping === 0 ? 'Free' : `$${orderSummary.shipping.toFixed(2)}`}`, 10, y);
-    y += 8;
-    doc.text(`Tax: $${orderSummary.tax.toFixed(2)}`, 10, y);
-    y += 8;
-    doc.setFontSize(14);
-    doc.text(`Total: $${orderSummary.total.toFixed(2)}`, 10, y);
-    y += 12;
-    doc.setFontSize(10);
-    doc.text("Thank you for shopping with ElectroWave!", 10, y);
-    doc.save("OrderSummary.pdf");
-  };
+  const [cart, setCart] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [formData, setFormData] = useState({
-    // Personal Info
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    
-    // Billing Address
     address: '',
     city: '',
     state: '',
     zipCode: '',
     country: 'United States',
-    
-    // Payment Info
     cardNumber: '',
     expiryDate: '',
     cvv: '',
     cardName: '',
   });
-
   const [errors, setErrors] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError("Please log in to proceed with payment.");
+          setLoading(false);
+          return;
+        }
+        const response = await axios.get("http://localhost:5000/api/cart", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCart(response.data);
+      } catch (err) {
+        setError("Failed to load cart.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCart();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,8 +67,6 @@ function PaymentPage() {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -88,8 +77,6 @@ function PaymentPage() {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    // Required fields
     const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode'];
     requiredFields.forEach(field => {
       if (!formData[field].trim()) {
@@ -97,7 +84,6 @@ function PaymentPage() {
       }
     });
 
-    // Payment fields
     if (paymentMethod === 'card') {
       if (!formData.cardNumber.trim()) newErrors.cardNumber = 'Card number is required';
       if (!formData.expiryDate.trim()) newErrors.expiryDate = 'Expiry date is required';
@@ -105,7 +91,6 @@ function PaymentPage() {
       if (!formData.cardName.trim()) newErrors.cardName = 'Cardholder name is required';
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email && !emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
@@ -119,29 +104,93 @@ function PaymentPage() {
     e.preventDefault();
     if (!validateForm()) return;
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('token');
+      const shippingAddress = `${formData.address}, ${formData.city}, ${formData.state} ${formData.zipCode}, ${formData.country}`;
+      const response = await axios.post("http://localhost:5000/api/orders", {
+        shippingAddress,
+        paymentMethod,
+        paymentDetails: paymentMethod === 'card' ? {
+          cardNumber: formData.cardNumber,
+          expiryDate: formData.expiryDate,
+          cvv: formData.cvv,
+          cardName: formData.cardName
+        } : {}
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setIsProcessing(false);
-      setShowSummaryModal(true);
-    }, 1500);
+      navigate('/ConfirmOrder', { state: { orderId: response.data._id } });
+    } catch (err) {
+      setIsProcessing(false);
+      setErrors({ submit: err.response?.data?.message || "Failed to process payment." });
+    }
   };
 
-  // Sample order summary
-  const orderSummary = {
-    items: [
-      { name: "iPhone 15 Pro", quantity: 1, price: 999 },
-      { name: "Samsung Galaxy S24", quantity: 2, price: 899 },
-      { name: "MacBook Pro 16\"", quantity: 1, price: 2499 },
-    ],
-    subtotal: 4297,
-    shipping: 0,
-    tax: 343.76,
-    total: 4640.76
+  const handleDownloadPDF = () => {
+    if (!cart) return;
+    const doc = new jsPDF();
+    let y = 10;
+    doc.setFontSize(18);
+    doc.text("Order Summary", 10, y);
+    y += 10;
+    doc.setFontSize(12);
+    cart.items.forEach(item => {
+      doc.text(`${item.product.productName} (Qty: ${item.quantity}) - $${(item.product.price * item.quantity).toFixed(2)}`, 10, y);
+      y += 8;
+    });
+    y += 4;
+    const subtotal = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    const shipping = subtotal > 99 ? 0 : 15;
+    const tax = subtotal * 0.08;
+    const total = subtotal + shipping + tax;
+    doc.text(`Subtotal: $${subtotal.toFixed(2)}`, 10, y);
+    y += 8;
+    doc.text(`Shipping: ${shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}`, 10, y);
+    y += 8;
+    doc.text(`Tax: $${tax.toFixed(2)}`, 10, y);
+    y += 8;
+    doc.setFontSize(14);
+    doc.text(`Total: $${total.toFixed(2)}`, 10, y);
+    y += 12;
+    doc.setFontSize(10);
+    doc.text("Thank you for shopping with ElectroWave!", 10, y);
+    doc.save("OrderSummary.pdf");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <h3 className="text-2xl font-bold text-slate-900">Loading...</h3>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !cart || cart.items.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-slate-900 mb-4">Error</h3>
+          <p className="text-slate-600 mb-8">{error || "Your cart is empty."}</p>
+          {error.includes("log in") ? (
+            <Link to="/login" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Log In
+            </Link>
+          ) : (
+            <Link to="/products" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Shop Now
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Order Summary Modal */}
       <AnimatePresence>
         {showSummaryModal && (
           <motion.div
@@ -165,13 +214,13 @@ function PaymentPage() {
               </button>
               <h2 className="text-3xl font-bold text-slate-900 mb-6 text-center">Order Summary</h2>
               <div className="space-y-4 mb-6">
-                {orderSummary.items.map((item, index) => (
+                {cart.items.map((item, index) => (
                   <div key={index} className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium text-slate-900">{item.name}</p>
+                      <p className="font-medium text-slate-900">{item.product.productName}</p>
                       <p className="text-sm text-slate-600">Qty: {item.quantity}</p>
                     </div>
-                    <p className="font-semibold">${(item.price * item.quantity).toLocaleString()}</p>
+                    <p className="font-semibold">${(item.product.price * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
@@ -179,23 +228,22 @@ function PaymentPage() {
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Subtotal</span>
-                  <span className="font-semibold">${orderSummary.subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">${cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Shipping</span>
-                  <span className="font-semibold">{orderSummary.shipping === 0 ? 'Free' : `$${orderSummary.shipping.toFixed(2)}`}</span>
+                  <span className="font-semibold">{cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) > 99 ? 'Free' : '$15.00'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Tax</span>
-                  <span className="font-semibold">${orderSummary.tax.toFixed(2)}</span>
+                  <span className="font-semibold">${(cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) * 0.08).toFixed(2)}</span>
                 </div>
                 <hr className="border-slate-200" />
                 <div className="flex justify-between text-xl font-bold">
                   <span>Total</span>
-                  <span className="text-blue-600">${orderSummary.total.toFixed(2)}</span>
+                  <span className="text-blue-600">${(cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) > 99 ? 0 : 15) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) * 0.08)).toFixed(2)}</span>
                 </div>
               </div>
-              {/* Security Badge */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                 <div className="flex items-center gap-2 text-green-800">
                   <Shield className="h-5 w-5" />
@@ -205,7 +253,6 @@ function PaymentPage() {
                   Your payment information is encrypted and secure
                 </p>
               </div>
-              {/* Download PDF Button */}
               <button
                 onClick={handleDownloadPDF}
                 className="w-full py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2 mb-4"
@@ -226,7 +273,6 @@ function PaymentPage() {
         )}
       </AnimatePresence>
       <div className="container mx-auto px-6 py-12">
-        {/* Header with Logo */}
         <div className="flex items-center justify-between mb-8">
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center">
@@ -235,8 +281,6 @@ function PaymentPage() {
             <span className="text-xl font-bold text-slate-900">ElectroWave</span>
           </Link>
         </div>
-
-        {/* Page Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link 
             to="/cart"
@@ -249,12 +293,9 @@ function PaymentPage() {
             <p className="text-slate-600">Complete your purchase safely and securely</p>
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Payment Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Personal Information */}
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                   <User className="h-6 w-6 text-blue-600" />
@@ -311,8 +352,6 @@ function PaymentPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Billing Address */}
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                   <MapPin className="h-6 w-6 text-blue-600" />
@@ -371,15 +410,11 @@ function PaymentPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Payment Method */}
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                   <CreditCard className="h-6 w-6 text-blue-600" />
                   Payment Method
                 </h2>
-                
-                {/* Payment Options */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <button
                     type="button"
@@ -416,8 +451,6 @@ function PaymentPage() {
                     <span className="block text-sm font-medium">Apple Pay</span>
                   </button>
                 </div>
-
-                {/* Card Details */}
                 {paymentMethod === 'card' && (
                   <div className="space-y-4">
                     <div>
@@ -476,8 +509,7 @@ function PaymentPage() {
                   </div>
                 )}
               </div>
-
-              {/* Submit Button */}
+              {errors.submit && <p className="text-red-500 text-sm mt-4">{errors.submit}</p>}
               <button
                 type="submit"
                 disabled={isProcessing}
@@ -495,14 +527,54 @@ function PaymentPage() {
                 ) : (
                   <>
                     <Lock className="h-5 w-5" />
-                    Complete Payment - ${orderSummary.total.toFixed(2)}
+                    Complete Payment - ${(cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) > 99 ? 0 : 15) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) * 0.08)).toFixed(2)}
                   </>
                 )}
               </button>
             </form>
           </div>
-
-          {/* Order Summary removed from main layout. Now only shown in modal after payment. */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">Order Summary</h2>
+              <div className="space-y-4 mb-6">
+                {cart.items.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-slate-900">{item.product.productName}</p>
+                      <p className="text-sm text-slate-600">Qty: {item.quantity}</p>
+                    </div>
+                    <p className="font-semibold">${(item.product.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                ))}
+                <hr className="border-slate-200" />
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Subtotal</span>
+                    <span className="font-semibold">${cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Shipping</span>
+                    <span className="font-semibold">{cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) > 99 ? 'Free' : '$15.00'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Tax</span>
+                    <span className="font-semibold">${(cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) * 0.08).toFixed(2)}</span>
+                  </div>
+                  <hr className="border-slate-200" />
+                  <div className="flex justify-between text-xl font-bold">
+                    <span>Total</span>
+                    <span className="text-blue-600">${(cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) > 99 ? 0 : 15) + (cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) * 0.08)).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSummaryModal(true)}
+                className="w-full py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                View Full Summary
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

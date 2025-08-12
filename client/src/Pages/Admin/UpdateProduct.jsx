@@ -14,6 +14,7 @@ const UpdateProduct = () => {
   const [stock, setStock] = useState("");
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [removedImages, setRemovedImages] = useState([]); // Track removed images
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -29,7 +30,7 @@ const UpdateProduct = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        console.log("Fetching product with id:", id); // Debug log
+        console.log("Fetching product with id:", id);
         const response = await axios.get(`http://localhost:5000/api/products/${id}`);
         const product = response.data;
         setProductName(product.productName);
@@ -44,7 +45,7 @@ const UpdateProduct = () => {
         setError(`Failed to load product details. ${error.response?.data?.message || "Please check the product ID or try again later."}`);
       }
     };
-    if (id) fetchProduct(); // Only fetch if id is present
+    if (id) fetchProduct();
   }, [id]);
 
   const handleImageChange = (e) => {
@@ -65,7 +66,12 @@ const UpdateProduct = () => {
 
   const handleRemoveImage = (indexToRemove) => {
     setPreviews(previews.filter((_, index) => index !== indexToRemove));
-    if (indexToRemove >= previews.length - images.length) {
+    if (indexToRemove < previews.length - images.length) {
+      // If removing an existing image (not a new upload)
+      const removedImageName = previews[indexToRemove].name;
+      setRemovedImages([...removedImages, removedImageName]);
+    } else {
+      // If removing a new upload
       setImages(images.filter((_, index) => index !== indexToRemove - (previews.length - images.length)));
     }
     if (previews.length <= 1) {
@@ -94,14 +100,18 @@ const UpdateProduct = () => {
     formData.append("brand", brand);
     formData.append("stock", stock);
     images.forEach((image) => formData.append("images", image));
+    if (removedImages.length > 0) {
+      formData.append("removedImages", JSON.stringify(removedImages)); // Send removed images
+    }
 
     try {
-      console.log("Updating product with id:", id); // Debug log
+      console.log("Updating product with id:", id);
       const response = await axios.put(`http://localhost:5000/api/products/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setSuccess("Product updated successfully!");
       setError("");
+      setRemovedImages([]); // Reset removed images after successful update
     } catch (error) {
       console.error("Error updating product:", error.response ? error.response.data : error.message);
       setError(
@@ -113,7 +123,6 @@ const UpdateProduct = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
       <div className="flex-1 p-10">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Update Product</h1>
         <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200">
@@ -185,7 +194,7 @@ const UpdateProduct = () => {
                   value={category}
                   onChange={(e) => {
                     setCategory(e.target.value);
-                    setBrand(""); // Reset brand when category changes
+                    setBrand("");
                   }}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200"
                   aria-label="Product category"
