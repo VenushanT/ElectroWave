@@ -8,6 +8,8 @@ import {
   Eye,
   LogOut,
   ShoppingBag,
+  Menu,
+  X,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { logout } from "../../store/authSlice";
@@ -33,58 +35,90 @@ const Sidebar = () => {
 
   return (
     <div
-      className={`bg-gray-800 text-white transition-all duration-300 ${
+      className={`bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-20" : "w-64"
-      } min-h-screen flex flex-col overflow-hidden`}
+      } min-h-screen flex flex-col shadow-2xl border-r border-slate-700`}
     >
-      <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <LayoutDashboard className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-white">Admin Panel</span>
+          </div>
+        )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-white focus:outline-none hover:text-gray-300 transition-colors"
+          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {isCollapsed ? "☰" : "✖"}
+          {isCollapsed ? (
+            <Menu className="w-5 h-5" />
+          ) : (
+            <X className="w-5 h-5" />
+          )}
         </button>
       </div>
-      <nav className="flex-1 px-2 flex flex-col">
-        <div className="flex-1">
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 overflow-hidden">
+        <div className="space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-all duration-200 ${
-                  isActive ? "bg-gray-600 text-white" : ""
+                `group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                  isActive
+                    ? "bg-blue-600 text-white shadow-lg transform scale-105"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:transform hover:scale-105"
                 } ${isCollapsed ? "justify-center" : ""}`
               }
               aria-label={item.label}
             >
               <item.icon
                 className={`${
-                  isCollapsed ? "h-6 w-6" : "h-6 w-6"
-                } transition-all duration-200`}
+                  isCollapsed ? "w-6 h-6" : "w-5 h-5"
+                } transition-all duration-200 flex-shrink-0`}
               />
-              {!isCollapsed && <span className="ml-3 text-sm font-medium">{item.label}</span>}
+              {!isCollapsed && (
+                <span className="ml-3 truncate transition-all duration-200">
+                  {item.label}
+                </span>
+              )}
+              {!isCollapsed && (
+                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="w-1 h-6 bg-blue-400 rounded-full" />
+                </div>
+              )}
             </NavLink>
           ))}
         </div>
-        <div className="pt-4 pb-6">
-          <button
-            onClick={handleLogout}
-            className={`flex items-center p-3 text-white hover:bg-red-900 rounded-lg transition-all duration-200 ${
-              isCollapsed ? "justify-center w-full" : ""
-            } bg-red-800 w-full`}
-            aria-label="Logout"
-          >
-            <LogOut
-              className={`${
-                isCollapsed ? "h-8 w-8" : "h-6 w-6"
-              } transition-all duration-200`}
-            />
-            {!isCollapsed && <span className="ml-3 text-sm font-medium">Logout</span>}
-          </button>
-        </div>
       </nav>
+
+      {/* Footer - Logout Button */}
+      <div className="p-3 border-t border-slate-700/50">
+        <button
+          onClick={handleLogout}
+          className={`group flex items-center w-full px-3 py-3 text-sm font-medium bg-red-600/90 hover:bg-red-600 text-white rounded-xl transition-all duration-200 hover:transform hover:scale-105 shadow-lg ${
+            isCollapsed ? "justify-center" : ""
+          }`}
+          aria-label="Logout"
+        >
+          <LogOut
+            className={`${
+              isCollapsed ? "w-6 h-6" : "w-5 h-5"
+            } transition-all duration-200 flex-shrink-0`}
+          />
+          {!isCollapsed && (
+            <span className="ml-3 transition-all duration-200">Logout</span>
+          )}
+        </button>
+      </div>
+
+
     </div>
   );
 };

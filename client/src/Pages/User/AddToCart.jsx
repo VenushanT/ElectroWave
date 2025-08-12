@@ -220,14 +220,6 @@ function AddToCart() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="fixed top-4 left-4 z-50">
-        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-            <Zap size={32} color="#6200EA" strokeWidth={2.5} />
-          </div>
-          <span className="text-xl font-bold text-slate-900">ElectroWave</span>
-        </Link>
-      </div>
       <div className="container mx-auto px-6 py-12 pt-20">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Shopping Cart</h1>

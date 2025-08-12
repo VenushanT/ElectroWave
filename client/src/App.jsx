@@ -40,22 +40,19 @@ function AppContent() {
   const isAdminRoute = adminRoutes.some((path) => location.pathname === path) || 
     location.pathname.startsWith("/update-product/");
   const hideHeader = [
-    "/products",
-    "/cart",
-    "/payment",
     "/login",
     "/register",
     "/dashboard",
     "/users",
     "/product",
+    "/products",
     "/add-product",
     "/view-products",
     "/orders",
-    "/ConfirmOrder",
-    "/MyOrders",
+    
   ].some((path) => location.pathname === path) || 
     location.pathname.startsWith("/update-product/");
-  const showLogoOnlyFooter = ["/login", "/register"].includes(location.pathname);
+  
 
   return (
     <div className="min-h-screen flex">
@@ -97,16 +94,6 @@ function AppContent() {
             <Route path="/update-product/:id" element={<UpdateProduct />} />
           </Routes>
         </main>
-        {!hideHeader && !showLogoOnlyFooter && <Footer />}
-        {showLogoOnlyFooter && (
-          <footer className="w-full flex justify-center items-center py-8 bg-transparent">
-            <img
-              src={process.env.PUBLIC_URL + "/zap-logo.png"}
-              alt="ElectroWave Logo"
-              className="w-16 h-16 object-contain"
-            />
-          </footer>
-        )}
       </div>
     </div>
   );

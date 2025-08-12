@@ -97,8 +97,8 @@ function MyOrders() {
                 <p className="text-slate-600 mb-4">Placed on {new Date(order.createdAt).toLocaleDateString()}</p>
                 <div className="space-y-4 mb-6">
                   {order.items.map(item => (
-                    <div key={item.product._id} className="flex justify-between">
-                      <span>{item.product.productName} x {item.quantity}</span>
+                    <div key={item.product?._id || item._id} className="flex justify-between">
+                      <span>{item.product ? `${item.product.productName} x ${item.quantity}` : `Product Unavailable x ${item.quantity}`}</span>
                       <span>${(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}

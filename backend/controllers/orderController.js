@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const User = require('../models/User');
+const Product = require('../models/Product');
 
 // @desc    Create order from cart (simulate payment)
 // @route   POST /api/orders
@@ -36,31 +37,64 @@ const createOrder = asyncHandler(async (req, res) => {
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 
-  const paymentStatus = 'Completed';
+  const paymentStatus = 'Completed'; // This would typically be set by a payment gateway
 
-  const order = new Order({
-    user: req.user.id,
-    items: orderItems,
-    totalAmount: total,
-    shippingAddress,
-    paymentMethod,
-    paymentStatus,
-    orderStatus: 'Pending',
-  });
+  const session = await Order.startSession();
+  session.startTransaction();
 
-  await order.save();
+  try {
+    const order = new Order({
+      user: req.user.id,
+      items: orderItems,
+      totalAmount: total,
+      shippingAddress,
+      paymentMethod,
+      paymentStatus,
+      orderStatus: 'Pending',
+    });
 
-  cart.items = [];
-  await cart.save();
+    await order.save({ session });
 
-  res.status(201).json(order);
+    // Reduce stock for each product
+    for (const item of cart.items) {
+      const product = await Product.findById(item.product._id);
+      if (!product) {
+        throw new Error(`Product ${item.product._id} not found`);
+      }
+      if (product.stock < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.productName}`);
+      }
+      product.stock -= item.quantity;
+      await product.save({ session });
+    }
+
+    cart.items = [];
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    res.status(201).json(order);
+  } catch (error) {
+    await session.abortTransaction();
+    throw new Error(error.message || 'Failed to create order');
+  } finally {
+    session.endSession();
+  }
 });
 
 // @desc    Get user's orders
 // @route   GET /api/orders/myorders
 // @access  Private
 const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user.id }).populate('items.product');
+  let orders = await Order.find({ user: req.user.id }).populate('items.product');
+
+  // Filter out items with null products and remove orders with no valid items
+  orders = orders
+    .map((order) => {
+      const validItems = order.items.filter((item) => item.product !== null);
+      return { ...order._doc, items: validItems };
+    })
+    .filter((order) => order.items.length > 0);
+
   res.json(orders);
 });
 
@@ -70,7 +104,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getOrderById = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id)
     .populate('items.product')
-    .populate('user', 'firstName lastName email phone');
+    .populate('user', 'firstName lastName email phoneNumber');
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
@@ -86,9 +120,18 @@ const getOrderById = asyncHandler(async (req, res) => {
 // @route   GET /api/orders
 // @access  Public
 const getAllOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find()
+  let orders = await Order.find()
     .populate('items.product')
-    .populate('user', 'firstName lastName email phone');
+    .populate('user', 'firstName lastName email phoneNumber');
+
+  // Filter out items with null products and remove orders with no valid items
+  orders = orders
+    .map((order) => {
+      const validItems = order.items.filter((item) => item.product !== null);
+      return { ...order._doc, items: validItems };
+    })
+    .filter((order) => order.items.length > 0);
+
   res.json(orders);
 });
 
