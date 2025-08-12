@@ -1,5 +1,8 @@
 ElectroWave ⚡
 
+Make the Add Product.jsx more professional and elegant and give me the world best code
+Do not add sample data this code has to all data retrieving from database just change UI
+
 
 
 MERN Project 🌟 ElectroWave 🚀
