@@ -67,10 +67,19 @@ const ViewProducts = () => {
   // Image gallery state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // Low stock alert state
+  const [lowStockAlert, setLowStockAlert] = useState(false);
+
   // Initialize data
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  // Check low stock on products update
+  useEffect(() => {
+    const hasLowStock = products.some(product => product.stock > 0 && product.stock <= 10);
+    setLowStockAlert(hasLowStock);
+  }, [products]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -90,17 +99,13 @@ const ViewProducts = () => {
   }, [productModal, deleteModal, fetchProducts]);
 
   // Enhanced delete handler with optimistic updates
-  // Enhanced delete handler with optimistic updates
   const handleDelete = async (id) => {
-    let originalProducts = [...products]; // Declare and initialize here
+    let originalProducts = [...products];
     try {
-      // Optimistic update
       setProducts(products.filter(p => p._id !== id));
       deleteModal.close();
-
       await axios.delete(`http://localhost:5000/api/products/${id}`);
     } catch (error) {
-      // Revert on error
       setProducts(originalProducts);
       console.error("Error deleting product:", error);
     }
@@ -126,7 +131,6 @@ const ViewProducts = () => {
       return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    // Sort products
     filtered.sort((a, b) => {
       let comparison = 0;
       
@@ -278,6 +282,14 @@ const ViewProducts = () => {
               <XCircle className="w-5 h-5 text-red-400 mr-2" />
               <p className="text-red-700">{error}</p>
             </div>
+          </div>
+        )}
+
+        {/* Low Stock Alert */}
+        {lowStockAlert && (
+          <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg flex items-center gap-2 animate-fadeIn">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            <p className="text-yellow-700 font-medium">Low Stock Alert: Some products have 10 or fewer units remaining!</p>
           </div>
         )}
 

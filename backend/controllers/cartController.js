@@ -1,4 +1,3 @@
-// controllers/cartController.js (New controller for Cart operations)
 const asyncHandler = require('express-async-handler');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');

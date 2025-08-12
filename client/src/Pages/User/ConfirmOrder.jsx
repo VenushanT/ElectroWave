@@ -61,14 +61,6 @@ function ConfirmOrder() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
       <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between mb-8">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-              <Zap size={32} color="#6200EA" strokeWidth={2.5} />
-            </div>
-            <span className="text-xl font-bold text-slate-900">ElectroWave</span>
-          </Link>
-        </div>
         <div className="bg-white rounded-xl shadow-lg p-6 text-center">
           <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-slate-900 mb-4">Order Confirmed!</h1>

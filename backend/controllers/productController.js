@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Product = require("../models/Product");
+const Order = require("../models/Order");
 const path = require("path");
 const fs = require("fs");
 
@@ -23,7 +24,7 @@ const createProduct = asyncHandler(async (req, res) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
     const extension = path.extname(file.originalname);
     const filename = `${uniqueSuffix}${extension}`;
-    const uploadPath = path.join(__dirname, "../uploads", filename);
+    const uploadPath = path.join(__dirname, "../Uploads", filename);
     fs.writeFileSync(uploadPath, file.buffer);
     return filename;
   });
@@ -94,7 +95,7 @@ const updateProduct = asyncHandler(async (req, res) => {
       const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
       const extension = path.extname(file.originalname);
       const filename = `${uniqueSuffix}${extension}`;
-      const uploadPath = path.join(__dirname, "../uploads", filename);
+      const uploadPath = path.join(__dirname, "../Uploads", filename);
       fs.writeFileSync(uploadPath, file.buffer);
       return filename;
     });
@@ -105,7 +106,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (removedImages.length > 0) {
     product.images = product.images.filter((image) => !removedImages.includes(image));
     removedImages.forEach((image) => {
-      const imagePath = path.join(__dirname, "../uploads", image);
+      const imagePath = path.join(__dirname, "../Uploads", image);
       if (fs.existsSync(imagePath)) {
         try {
           fs.unlinkSync(imagePath);
@@ -132,9 +133,16 @@ const deleteProduct = asyncHandler(async (req, res) => {
     throw new Error("Product not found");
   }
 
+  // Check if product is referenced in any orders
+  const ordersWithProduct = await Order.find({ "items.product": id });
+  if (ordersWithProduct.length > 0) {
+    res.status(400);
+    throw new Error("Cannot delete product because it is referenced in existing orders");
+  }
+
   // Delete associated images from filesystem with error handling
   product.images.forEach((image) => {
-    const imagePath = path.join(__dirname, "../uploads", image);
+    const imagePath = path.join(__dirname, "../Uploads", image);
     if (fs.existsSync(imagePath)) {
       try {
         fs.unlinkSync(imagePath);

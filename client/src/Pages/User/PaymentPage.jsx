@@ -10,7 +10,8 @@ import {
   Shield,
   ArrowLeft,
   Check,
-  Zap
+  Zap,
+  AlertCircle
 } from "lucide-react";
 import axios from "axios";
 
@@ -104,6 +105,7 @@ function PaymentPage() {
     e.preventDefault();
     if (!validateForm()) return;
     setIsProcessing(true);
+    setError(""); // Clear previous errors
     try {
       const token = localStorage.getItem('token');
       const shippingAddress = `${formData.address}, ${formData.city}, ${formData.state} ${formData.zipCode}, ${formData.country}`;
@@ -123,7 +125,9 @@ function PaymentPage() {
       navigate('/ConfirmOrder', { state: { orderId: response.data._id } });
     } catch (err) {
       setIsProcessing(false);
-      setErrors({ submit: err.response?.data?.message || "Failed to process payment." });
+      setErrors({ submit: "Failed to process payment. Please check your details and try again or contact support." });
+      // Log the error for debugging (optional)
+      console.error("Payment failed:", err.response?.data?.message || err.message);
     }
   };
 
@@ -273,14 +277,6 @@ function PaymentPage() {
         )}
       </AnimatePresence>
       <div className="container mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-              <Zap size={32} color="#6200EA" strokeWidth={2.5} />
-            </div>
-            <span className="text-xl font-bold text-slate-900">ElectroWave</span>
-          </Link>
-        </div>
         <div className="flex items-center gap-4 mb-8">
           <Link 
             to="/cart"
@@ -509,7 +505,24 @@ function PaymentPage() {
                   </div>
                 )}
               </div>
-              {errors.submit && <p className="text-red-500 text-sm mt-4">{errors.submit}</p>}
+              {errors.submit && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center gap-2 mt-4">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <p className="text-red-700">{errors.submit}</p>
+                  <button
+                    onClick={() => setErrors({})} // Clear error to retry
+                    className="ml-auto text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Retry Payment
+                  </button>
+                  <Link
+                    to="/cart"
+                    className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Back to Cart
+                  </Link>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={isProcessing}
