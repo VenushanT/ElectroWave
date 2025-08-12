@@ -1,10 +1,5 @@
 ElectroWave ⚡
 
-Make the Add Product.jsx more professional and elegant and give me the world best code
-Do not add sample data this code has to all data retrieving from database just change UI
-
-
-
 MERN Project 🌟 ElectroWave 🚀
 Overview ✨
 ElectroWave is a full-stack e-commerce platform built with the MERN stack (MongoDB, Express.js, React, Node.js) for buying and selling electronics. It provides a seamless shopping experience with features like product browsing, cart management, user authentication, and secure checkout. 🌐🔒
