@@ -69,6 +69,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { productName, description, price, category, brand, stock } = req.body;
   const files = req.files;
+  const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
 
   const product = await Product.findById(id);
   if (!product) {
@@ -83,6 +84,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   product.brand = brand || product.brand;
   product.stock = stock || product.stock;
 
+  // Handle new images
   if (files && files.length > 0) {
     if (files.length > 5) {
       res.status(400);
@@ -97,6 +99,21 @@ const updateProduct = asyncHandler(async (req, res) => {
       return filename;
     });
     product.images = [...product.images, ...newImagePaths];
+  }
+
+  // Handle removed images
+  if (removedImages.length > 0) {
+    product.images = product.images.filter((image) => !removedImages.includes(image));
+    removedImages.forEach((image) => {
+      const imagePath = path.join(__dirname, "../uploads", image);
+      if (fs.existsSync(imagePath)) {
+        try {
+          fs.unlinkSync(imagePath);
+        } catch (err) {
+          console.error(`Failed to delete image ${imagePath}: ${err.message}`);
+        }
+      }
+    });
   }
 
   const updatedProduct = await product.save();
