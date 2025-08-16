@@ -1,3 +1,4 @@
+// orderModel.js (no change needed, but included for completeness)
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
@@ -32,12 +33,12 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['card', 'paypal', 'apple'],
+    enum: ['card', 'paypal', 'apple', 'cod'],
   },
   paymentStatus: {
     type: String,
     default: 'Pending',
-    enum: ['Pending', 'Completed', 'Failed'],
+    enum: ['Pending', 'Completed', 'Failed', 'Cancelled'],
   },
   orderStatus: {
     type: String,

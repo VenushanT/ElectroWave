@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip } from "react-tooltip";
 import {
   ShoppingBag,
   User,
@@ -17,8 +19,12 @@ import {
   XCircle,
   Phone,
   Mail,
+  Loader,
+  CreditCard,
+  Download,
 } from "lucide-react";
 import axios from "axios";
+import OrderReport from "./OrderReport";
 
 function Orders() {
   const [orders, setOrders] = useState([]);
@@ -27,6 +33,7 @@ function Orders() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [paymentFilter, setPaymentFilter] = useState("All");
   const [updating, setUpdating] = useState(false);
 
   const statusColors = {
@@ -36,11 +43,24 @@ function Orders() {
     Cancelled: { bg: "bg-red-100", text: "text-red-800", border: "border-red-200", icon: XCircle },
   };
 
+  const paymentColors = {
+    card: { bg: "bg-blue-100", text: "text-blue-800", border: "border-blue-200", icon: CreditCard, label: "Card" },
+    paypal: { bg: "bg-blue-100", text: "text-blue-800", border: "border-blue-200", icon: CreditCard, label: "PayPal" },
+    apple: { bg: "bg-blue-100", text: "text-blue-800", border: "border-blue-200", icon: CreditCard, label: "Apple Pay" },
+    cod: { bg: "bg-green-100", text: "text-green-800", border: "border-green-200", icon: Truck, label: "Cash on Delivery" },
+  };
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
       setError("");
-      const response = await axios.get("http://localhost:5000/api/orders");
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Please log in to access orders.");
+      }
+      const response = await axios.get("http://localhost:5000/api/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setOrders(response.data);
       setFilteredOrders(response.data);
     } catch (err) {
@@ -72,18 +92,25 @@ function Orders() {
       filtered = filtered.filter(order => (order.orderStatus || "Pending") === statusFilter);
     }
 
+    // Filter by payment method
+    if (paymentFilter !== "All") {
+      filtered = filtered.filter(order => order.paymentMethod === paymentFilter);
+    }
+
     setFilteredOrders(filtered);
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchTerm, statusFilter, paymentFilter]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       setUpdating(true);
+      const token = localStorage.getItem('token');
       const response = await axios.put(
         `http://localhost:5000/api/orders/${orderId}`,
-        { status: newStatus }
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setOrders(orders.map(order =>
-        order._id === orderId ? { ...order, orderStatus: newStatus } : order
+        order._id === orderId ? { ...order, orderStatus: newStatus, paymentStatus: response.data.paymentStatus } : order
       ));
     } catch (err) {
       console.error("Error updating order status:", err);
@@ -97,18 +124,20 @@ function Orders() {
     const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const shipping = subtotal > 99 ? 0 : 15;
     const tax = subtotal * 0.08;
-    return subtotal + shipping + tax;
+    return parseFloat((subtotal + shipping + tax).toFixed(2));
   };
 
-  const getOrderSummary = () => {
+  const getOrderSummary = useMemo(() => {
     const total = orders.length;
     const pending = orders.filter(o => (o.orderStatus || "Pending") === "Pending").length;
     const shipped = orders.filter(o => o.orderStatus === "Shipped").length;
     const delivered = orders.filter(o => o.orderStatus === "Delivered").length;
     const cancelled = orders.filter(o => o.orderStatus === "Cancelled").length;
+    const card = orders.filter(o => ['card', 'paypal', 'apple'].includes(o.paymentMethod)).length;
+    const cod = orders.filter(o => o.paymentMethod === 'cod').length;
 
-    return { total, pending, shipped, delivered, cancelled };
-  };
+    return { total, pending, shipped, delivered, cancelled, card, cod };
+  }, [orders]);
 
   const StatusBadge = ({ status }) => {
     const statusInfo = statusColors[status] || statusColors.Pending;
@@ -122,16 +151,30 @@ function Orders() {
     );
   };
 
+  const PaymentBadge = ({ paymentMethod, paymentStatus }) => {
+    const paymentInfo = paymentColors[paymentMethod] || paymentColors.card;
+    const IconComponent = paymentInfo.icon;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${paymentInfo.bg} ${paymentInfo.text} ${paymentInfo.border} border`}
+        data-tooltip-id={`payment-tooltip-${paymentMethod}`}
+        data-tooltip-content={paymentMethod === 'cod' ? 'Payment due on delivery' : 'Payment processed via card or digital wallet'}
+      >
+        <IconComponent className="h-3.5 w-3.5" />
+        {paymentInfo.label} ({paymentStatus})
+      </span>
+    );
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
-            <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+      <div className="flex min-h-screen bg-gray-50">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg">Loading orders...</p>
           </div>
-          <h3 className="text-2xl font-bold text-slate-900 mt-6">Loading Orders...</h3>
-          <p className="text-slate-600 mt-2">Please wait while we fetch your data</p>
         </div>
       </div>
     );
@@ -166,8 +209,6 @@ function Orders() {
     );
   }
 
-  const orderSummary = getOrderSummary();
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50">
       <div className="container mx-auto px-4 py-8">
@@ -191,12 +232,17 @@ function Orders() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <motion.div
+          className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="bg-white rounded-xl shadow-sm border border-white/50 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600">Total Orders</p>
-                <p className="text-2xl font-bold text-slate-900">{orderSummary.total}</p>
+                <p className="text-2xl font-bold text-slate-900">{getOrderSummary.total}</p>
               </div>
               <Package className="h-8 w-8 text-slate-400" />
             </div>
@@ -205,7 +251,7 @@ function Orders() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-amber-600">Pending</p>
-                <p className="text-2xl font-bold text-amber-700">{orderSummary.pending}</p>
+                <p className="text-2xl font-bold text-amber-700">{getOrderSummary.pending}</p>
               </div>
               <Clock className="h-8 w-8 text-amber-400" />
             </div>
@@ -214,7 +260,7 @@ function Orders() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-blue-600">Shipped</p>
-                <p className="text-2xl font-bold text-blue-700">{orderSummary.shipped}</p>
+                <p className="text-2xl font-bold text-blue-700">{getOrderSummary.shipped}</p>
               </div>
               <Truck className="h-8 w-8 text-blue-400" />
             </div>
@@ -223,7 +269,7 @@ function Orders() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-emerald-600">Delivered</p>
-                <p className="text-2xl font-bold text-emerald-700">{orderSummary.delivered}</p>
+                <p className="text-2xl font-bold text-emerald-700">{getOrderSummary.delivered}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-emerald-400" />
             </div>
@@ -232,15 +278,29 @@ function Orders() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-red-600">Cancelled</p>
-                <p className="text-2xl font-bold text-red-700">{orderSummary.cancelled}</p>
+                <p className="text-2xl font-bold text-red-700">{getOrderSummary.cancelled}</p>
               </div>
               <XCircle className="h-8 w-8 text-red-400" />
             </div>
           </div>
-        </div>
+          <div className="bg-white rounded-xl shadow-sm border border-white/50 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Card / COD</p>
+                <p className="text-2xl font-bold text-blue-700">{`${getOrderSummary.card} / ${getOrderSummary.cod}`}</p>
+              </div>
+              <CreditCard className="h-8 w-8 text-blue-400" />
+            </div>
+          </div>
+        </motion.div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-white/50 p-6 mb-6">
+        <motion.div
+          className="bg-white rounded-xl shadow-sm border border-white/50 p-6 mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -269,19 +329,40 @@ function Orders() {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="pl-10 pr-8 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none"
+                >
+                  <option value="All">All Payments</option>
+                  <option value="card">Card</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="apple">Apple Pay</option>
+                  <option value="cod">Cash on Delivery</option>
+                </select>
+              </div>
               <button
                 onClick={fetchOrders}
                 className="px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-2"
+                disabled={updating}
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className={`h-5 w-5 ${updating ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
+              <OrderReport orders={orders} />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm border border-white/50">
+        <motion.div
+          className="bg-white rounded-xl shadow-sm border border-white/50"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
           {filteredOrders.length === 0 ? (
             <div className="text-center py-16">
               <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -297,9 +378,16 @@ function Orders() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <AnimatePresence>
               {filteredOrders.map((order, index) => (
-                <div key={order._id} className="p-6 hover:bg-slate-50/50 transition-colors">
+                <motion.div
+                  key={order._id}
+                  className="p-6 hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
@@ -359,6 +447,12 @@ function Orders() {
                           <Phone className="h-4 w-4 text-slate-400" />
                           <span className="text-slate-600">{order.user?.phoneNumber || "Not provided"}</span>
                         </p>
+                        <p className="flex items-center gap-2 text-sm">
+                          <DollarSign className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium text-slate-700">Payment:</span>
+                          <PaymentBadge paymentMethod={order.paymentMethod} paymentStatus={order.paymentStatus} />
+                        </p>
+                        <Tooltip id={`payment-tooltip-${order.paymentMethod}`} place="top" effect="solid" />
                       </div>
 
                       <div className="flex items-center gap-2 mb-3">
@@ -424,11 +518,11 @@ function Orders() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </AnimatePresence>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );
