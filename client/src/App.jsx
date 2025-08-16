@@ -26,6 +26,7 @@ import AddProduct from "./Pages/Admin/AddProduct";
 import ViewProducts from "./Pages/Admin/ViewProducts";
 import UpdateProduct from "./Pages/Admin/UpdateProduct";
 import Orders from "./Pages/Admin/Orders";
+import ManageCategoriesBrands from "./Pages/Admin/ManageCategoriesBrands";
 
 function AppContent() {
   const location = useLocation();
@@ -36,6 +37,7 @@ function AppContent() {
     "/add-product",
     "/view-products",
     "/orders",
+    "/manage-categories-brands",
   ];
   const isAdminRoute = adminRoutes.some((path) => location.pathname === path) || 
     location.pathname.startsWith("/update-product/");
@@ -49,7 +51,7 @@ function AppContent() {
     "/add-product",
     "/view-products",
     "/orders",
-    
+    "/manage-categories-brands",
   ].some((path) => location.pathname === path) || 
     location.pathname.startsWith("/update-product/");
   
@@ -92,6 +94,7 @@ function AppContent() {
             <Route path="/view-products" element={<ViewProducts />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/update-product/:id" element={<UpdateProduct />} />
+            <Route path="/manage-categories-brands" element={<ManageCategoriesBrands />} />
           </Routes>
         </main>
       </div>

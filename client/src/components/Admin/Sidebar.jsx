@@ -26,6 +26,11 @@ const Sidebar = () => {
     { path: "/add-product", icon: PlusCircle, label: "Add Product" },
     { path: "/view-products", icon: Eye, label: "View Products" },
     { path: "/orders", icon: ShoppingBag, label: "Orders" },
+    {
+      path: "/manage-categories-brands",
+      icon: Package,
+      label: "Manage Categories & Brands",
+    },
   ];
 
   const handleLogout = () => {
@@ -117,8 +122,6 @@ const Sidebar = () => {
           )}
         </button>
       </div>
-
-
     </div>
   );
 };
