@@ -26,6 +26,7 @@ import AddProduct from "./Pages/Admin/AddProduct";
 import ViewProducts from "./Pages/Admin/ViewProducts";
 import UpdateProduct from "./Pages/Admin/UpdateProduct";
 import Orders from "./Pages/Admin/Orders";
+import ReviewPage from "./Pages/User/Review";
 import ManageCategoriesBrands from "./Pages/Admin/ManageCategoriesBrands";
 
 function AppContent() {
@@ -47,14 +48,12 @@ function AppContent() {
     "/dashboard",
     "/users",
     "/product",
-    "/products",
     "/add-product",
     "/view-products",
     "/orders",
     "/manage-categories-brands",
   ].some((path) => location.pathname === path) || 
     location.pathname.startsWith("/update-product/");
-  
 
   return (
     <div className="min-h-screen flex">
@@ -86,6 +85,7 @@ function AppContent() {
             <Route path="/categories" element={<CategoriesSection />} />
             <Route path="/ConfirmOrder" element={<ConfirmOrder />} />
             <Route path="/MyOrders" element={<MyOrders />} />
+            <Route path="/product/:id/reviews" element={<ReviewPage />} />
             <Route path="/product/:id" element={<ProductDetailsPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/users" element={<Users />} />
@@ -97,6 +97,7 @@ function AppContent() {
             <Route path="/manage-categories-brands" element={<ManageCategoriesBrands />} />
           </Routes>
         </main>
+        {!hideHeader && <Footer />}
       </div>
     </div>
   );

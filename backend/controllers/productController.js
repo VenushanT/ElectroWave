@@ -1,12 +1,14 @@
 const asyncHandler = require("express-async-handler");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
+const User = require("../models/User");
 const path = require("path");
 const fs = require("fs");
+const mongoose = require("mongoose");
 
 // @desc    Create a new product
 // @route   POST /api/products
-// @access  Private
+// @access  Public
 const createProduct = asyncHandler(async (req, res) => {
   const { productName, description, price, category, brand, stock } = req.body;
   const files = req.files;
@@ -32,10 +34,10 @@ const createProduct = asyncHandler(async (req, res) => {
   const product = new Product({
     productName,
     description,
-    price,
+    price: parseFloat(price),
     category,
     brand,
-    stock,
+    stock: parseInt(stock),
     images: imagePaths,
   });
 
@@ -45,32 +47,108 @@ const createProduct = asyncHandler(async (req, res) => {
 
 // @desc    Get all products
 // @route   GET /api/products
-// @access  Private
+// @access  Public
 const getAllProducts = asyncHandler(async (req, res) => {
-  const products = await Product.find();
+  const products = await Product.find().select(
+    "productName description price category brand stock images rating numReviews createdAt"
+  );
   res.json(products);
 });
 
 // @desc    Get a product by ID
 // @route   GET /api/products/:id
-// @access  Private
+// @access  Public
 const getProductById = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
+
+  const product = await Product.findById(req.params.id)
+    .populate("reviews.user", "firstName lastName")
+    .lean()
+    .exec();
+
   if (!product) {
     res.status(404);
     throw new Error("Product not found");
   }
+
+  // Ensure reviews are properly formatted
+  product.reviews = product.reviews.map((review) => ({
+    _id: review._id,
+    user: {
+      _id: review.user?._id || null,
+      firstName: review.user?.firstName || "Anonymous",
+      lastName: review.user?.lastName || "",
+    },
+    rating: review.rating,
+    comment: review.comment,
+    createdAt: review.createdAt,
+  }));
+
   res.json(product);
+});
+
+// @desc    Get all reviews for a product
+// @route   GET /api/products/:id/reviews
+// @access  Public
+const getProductReviews = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
+
+  const product = await Product.findById(req.params.id)
+    .populate("reviews.user", "firstName lastName")
+    .lean()
+    .exec();
+
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  const validReviews = product.reviews
+    .filter(
+      (review) =>
+        review.user &&
+        typeof review.user === "object" &&
+        (review.user.firstName || review.user.lastName) &&
+        review.rating &&
+        review.comment &&
+        review.createdAt
+    )
+    .map((review) => ({
+      _id: review._id,
+      user: {
+        _id: review.user?._id || null,
+        firstName: review.user?.firstName || "Anonymous",
+        lastName: review.user?.lastName || "",
+      },
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+    }));
+
+  res.json(validReviews);
 });
 
 // @desc    Update a product
 // @route   PUT /api/products/:id
-// @access  Private
+// @access  Public
 const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { productName, description, price, category, brand, stock } = req.body;
   const files = req.files;
-  const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
+  const removedImages = req.body.removedImages
+    ? JSON.parse(req.body.removedImages)
+    : [];
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
 
   const product = await Product.findById(id);
   if (!product) {
@@ -80,12 +158,11 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   product.productName = productName || product.productName;
   product.description = description || product.description;
-  product.price = price || product.price;
+  product.price = price ? parseFloat(price) : product.price;
   product.category = category || product.category;
   product.brand = brand || product.brand;
-  product.stock = stock || product.stock;
+  product.stock = stock ? parseInt(stock) : product.stock;
 
-  // Handle new images
   if (files && files.length > 0) {
     if (files.length > 5) {
       res.status(400);
@@ -102,9 +179,10 @@ const updateProduct = asyncHandler(async (req, res) => {
     product.images = [...product.images, ...newImagePaths];
   }
 
-  // Handle removed images
   if (removedImages.length > 0) {
-    product.images = product.images.filter((image) => !removedImages.includes(image));
+    product.images = product.images.filter(
+      (image) => !removedImages.includes(image)
+    );
     removedImages.forEach((image) => {
       const imagePath = path.join(__dirname, "../Uploads", image);
       if (fs.existsSync(imagePath)) {
@@ -123,9 +201,14 @@ const updateProduct = asyncHandler(async (req, res) => {
 
 // @desc    Delete a product
 // @route   DELETE /api/products/:id
-// @access  Private
+// @access  Public
 const deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
 
   const product = await Product.findById(id);
   if (!product) {
@@ -133,14 +216,14 @@ const deleteProduct = asyncHandler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  // Check if product is referenced in any orders
   const ordersWithProduct = await Order.find({ "items.product": id });
   if (ordersWithProduct.length > 0) {
     res.status(400);
-    throw new Error("Cannot delete product because it is referenced in existing orders");
+    throw new Error(
+      "Cannot delete product because it is referenced in existing orders"
+    );
   }
 
-  // Delete associated images from filesystem with error handling
   product.images.forEach((image) => {
     const imagePath = path.join(__dirname, "../Uploads", image);
     if (fs.existsSync(imagePath)) {
@@ -156,4 +239,66 @@ const deleteProduct = asyncHandler(async (req, res) => {
   res.json({ message: "Product deleted successfully" });
 });
 
-module.exports = { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct };
+// @desc    Add a review to a product
+// @route   POST /api/products/:id/reviews
+// @access  Private
+const addReview = asyncHandler(async (req, res) => {
+  const { rating, comment, userId } = req.body;
+  const productId = req.params.id;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
+
+  const product = await Product.findById(productId);
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  if (!rating || rating < 1 || rating > 5) {
+    res.status(400);
+    throw new Error("Rating must be between 1 and 5");
+  }
+  if (!comment || comment.trim().length === 0) {
+    res.status(400);
+    throw new Error("Comment is required");
+  }
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    res.status(400);
+    throw new Error("Valid User ID is required");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  const review = {
+    user: userId,
+    rating: Number(rating),
+    comment,
+    createdAt: Date.now(),
+  };
+
+  product.reviews.push(review);
+  product.numReviews = product.reviews.length;
+  product.rating =
+    product.reviews.reduce((acc, item) => acc + item.rating, 0) /
+    product.numReviews;
+
+  await product.save();
+  res.status(201).json({ message: "Review added successfully", review });
+});
+
+module.exports = {
+  createProduct,
+  getAllProducts,
+  getProductById,
+  getProductReviews,
+  updateProduct,
+  deleteProduct,
+  addReview,
+};
