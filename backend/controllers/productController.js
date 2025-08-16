@@ -293,6 +293,47 @@ const addReview = asyncHandler(async (req, res) => {
   res.status(201).json({ message: "Review added successfully", review });
 });
 
+// @desc    Get top selling products
+// @route   GET /api/products/top-selling
+// @access  Public
+const getTopSellingProducts = asyncHandler(async (req, res) => {
+  const orders = await Order.find({ orderStatus: "Delivered" })
+    .populate("items.product", "productName price")
+    .lean()
+    .exec();
+
+  const salesByProduct = {};
+  orders.forEach((order) => {
+    order.items.forEach((item) => {
+      if (item.product && item.product._id) {
+        const pid = item.product._id.toString();
+        if (!salesByProduct[pid]) {
+          salesByProduct[pid] = {
+            _id: pid,
+            name: item.product.productName || "Unknown",
+            quantity: 0,
+            revenue: 0,
+          };
+        }
+        salesByProduct[pid].quantity += item.quantity;
+        salesByProduct[pid].revenue += item.price * item.quantity;
+      }
+    });
+  });
+
+  const topSelling = Object.values(salesByProduct)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 10)
+    .map((product) => ({
+      _id: product._id,
+      productName: product.name,
+      quantitySold: product.quantity,
+      revenue: parseFloat(product.revenue.toFixed(2)),
+    }));
+
+  res.json(topSelling);
+});
+
 module.exports = {
   createProduct,
   getAllProducts,
@@ -301,4 +342,5 @@ module.exports = {
   updateProduct,
   deleteProduct,
   addReview,
+  getTopSellingProducts,
 };
