@@ -66,7 +66,9 @@ const createOrder = asyncHandler(async (req, res) => {
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 
-  // Set payment status based on payment method
+  // CORRECTED PAYMENT LOGIC:
+  // - Card/PayPal/Apple: Payment processed immediately (Completed) and earnings counted immediately
+  // - COD: Payment pending until delivery, earnings counted only on delivery
   const paymentStatus = paymentMethod === 'cod' ? 'Pending' : 'Completed';
 
   // Start MongoDB transaction
@@ -82,7 +84,7 @@ const createOrder = asyncHandler(async (req, res) => {
       shippingAddress: shippingAddress.trim(),
       paymentMethod,
       paymentStatus,
-      orderStatus: 'Pending',
+      orderStatus: 'Pending', // Always starts as Pending regardless of payment method
     });
 
     await order.save({ session });
@@ -338,12 +340,29 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     throw new Error('Order not found');
   }
 
+  // Store previous status for logging/tracking
+  const previousStatus = order.orderStatus;
+  
+  // Update order status
   order.orderStatus = status;
-  // Update paymentStatus for COD orders when delivered
+  
+  // CRITICAL BUSINESS LOGIC: Update payment status for COD orders when delivered
+  // This is when COD orders should be counted in earnings
   if (order.paymentMethod === 'cod' && status === 'Delivered') {
     order.paymentStatus = 'Completed';
   }
+  
+  // If order is cancelled, we might want to handle refunds for card payments
+  if (status === 'Cancelled' && order.paymentMethod !== 'cod') {
+    // For card/paypal/apple payments that were already processed,
+    // you might want to initiate a refund process here
+    // order.paymentStatus = 'Refunded'; // Optional: track refund status
+  }
+  
   await order.save();
+
+  // Log the status change for audit trail (optional)
+  console.log(`Order ${order._id} status changed from ${previousStatus} to ${status}`);
 
   const populatedOrder = await Order.findById(order._id)
     .populate('items.product', 'productName price images rating numReviews')
@@ -430,18 +449,130 @@ const cancelOrder = asyncHandler(async (req, res) => {
       }
     }
 
+    // For card payments, you might want to initiate refund process here
+    if (order.paymentMethod !== 'cod') {
+      console.log(`Initiating refund for order ${order._id} - Payment Method: ${order.paymentMethod}`);
+      // Add refund logic here if needed
+    }
+
     // Delete the order
     await Order.findByIdAndDelete(req.params.id, { session });
 
     await session.commitTransaction();
 
-    res.json({ message: 'Order cancelled and deleted successfully' });
+    res.json({ 
+      message: 'Order cancelled and deleted successfully',
+      refundRequired: order.paymentMethod !== 'cod' // Indicate if refund is needed
+    });
   } catch (error) {
     await session.abortTransaction();
     throw new Error(error.message || 'Failed to cancel order');
   } finally {
     session.endSession();
   }
+});
+
+// CORRECTED: Helper function to determine if order should count towards earnings
+const shouldCountInEarnings = (order) => {
+  // Card/PayPal/Apple payments: Count immediately when order is placed (even if Pending status)
+  if (['card', 'paypal', 'apple'].includes(order.paymentMethod)) {
+    return order.paymentStatus === 'Completed'; // This is set immediately for these payment methods
+  }
+  
+  // COD payments: Only count when delivered (payment status changes to Completed on delivery)
+  if (order.paymentMethod === 'cod') {
+    return order.orderStatus === 'Delivered' && order.paymentStatus === 'Completed';
+  }
+  
+  return false;
+};
+
+// @desc    Get sales analytics (CORRECTED: Proper earnings calculation by payment method)
+// @route   GET /api/orders/analytics/sales
+// @access  Public
+// @desc    Get sales analytics (CORRECTED: Proper earnings calculation by payment method)
+// @route   GET /api/orders/analytics/sales
+// @access  Public
+const getSalesAnalytics = asyncHandler(async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  // Get all orders
+  const allOrders = await Order.find().lean();
+
+  // Filter orders that should count in earnings based on payment method
+  const earningsEligibleOrders = allOrders.filter(shouldCountInEarnings);
+
+  const dailySales = earningsEligibleOrders
+    .filter(o => o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === today)
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const yesterdaySales = earningsEligibleOrders
+    .filter(o => o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === yesterday)
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const monthlySales = earningsEligibleOrders
+    .filter(o => {
+      const orderDate = new Date(o.createdAt);
+      return (
+        orderDate.getMonth() === currentMonth &&
+        orderDate.getFullYear() === currentYear
+      );
+    })
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const totalRevenue = earningsEligibleOrders
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const salesGrowth = yesterdaySales > 0 ? ((dailySales - yesterdaySales) / yesterdaySales * 100) : 0;
+
+  // Additional metrics for transparency
+  const todaysCardOrders = allOrders.filter(o => 
+    o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === today && 
+    ['card', 'paypal', 'apple'].includes(o.paymentMethod)
+  ).length;
+
+  const todaysCODDelivered = allOrders.filter(o => 
+    o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === today && 
+    o.paymentMethod === 'cod' && o.orderStatus === 'Delivered'
+  ).length;
+
+  // Breakdown by payment method for better insights
+  const cardOrdersEarnings = earningsEligibleOrders
+    .filter(o => ['card', 'paypal', 'apple'].includes(o.paymentMethod))
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const codOrdersEarnings = earningsEligibleOrders
+    .filter(o => o.paymentMethod === 'cod')
+    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  res.json({
+    dailySales,
+    yesterdaySales,
+    monthlySales,
+    totalRevenue,
+    salesGrowth,
+    earningsEligibleOrdersCount: earningsEligibleOrders.length,
+    todaysCardOrders,
+    todaysCODDelivered,
+    totalOrders: allOrders.length,
+    cardOrdersEarnings,
+    codOrdersEarnings,
+    // Helper data for frontend
+    paymentMethodBreakdown: {
+      cardPayments: {
+        count: allOrders.filter(o => ['card', 'paypal', 'apple'].includes(o.paymentMethod)).length,
+        earnings: cardOrdersEarnings
+      },
+      codPayments: {
+        count: allOrders.filter(o => o.paymentMethod === 'cod').length,
+        earnings: codOrdersEarnings,
+        deliveredCount: allOrders.filter(o => o.paymentMethod === 'cod' && o.orderStatus === 'Delivered').length
+      }
+    }
+  });
 });
 
 module.exports = {
@@ -452,4 +583,5 @@ module.exports = {
   updateOrderStatus,
   getMyOrdersCount,
   cancelOrder,
+  getSalesAnalytics,
 };
