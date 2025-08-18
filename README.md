@@ -1,6 +1,5 @@
 ElectroWave ⚡
-![ElectroWave Demo](assets/electrowave.gif)
-
+![ElectroWave GIF](electrowave.gif)
 MERN Project 🌟 ElectroWave 🚀
 Overview ✨
 ElectroWave is a full-stack e-commerce platform built with the MERN stack (MongoDB, Express.js, React, Node.js) for buying and selling electronics. It provides a seamless shopping experience with features like product browsing, cart management, user authentication, and secure checkout. 🌐🔒
