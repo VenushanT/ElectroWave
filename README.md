@@ -74,3 +74,6 @@ License 🎫
 This project is licensed under the MIT License. ✅
 Contact 📧
 For questions or feedback, contact( VenushanT,Dilukshan285 ) or open an issue in the repository. 💬
+
+
+if the gif not showing click the "electrowave.gif" in repo
