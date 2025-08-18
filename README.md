@@ -1,4 +1,4 @@
-ElectroWave ⚡
+                                          ElectroWave ⚡
 ![ElectroWave GIF](electrowave.gif)
 MERN Project 🌟 ElectroWave 🚀
 Overview ✨
