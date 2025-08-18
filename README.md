@@ -1,4 +1,5 @@
 ElectroWave ⚡
+![ElectroWave Demo](assets/electrowave.gif)
 
 MERN Project 🌟 ElectroWave 🚀
 Overview ✨
